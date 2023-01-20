@@ -13,6 +13,24 @@ fn index() -> &'static str {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
+struct ApiError {
+    status: String,
+    title: String,
+    detail: String,
+}
+
+fn api_error(status: Status, title: String, detail: String) -> (Status, Json<ApiError>) {
+    (
+        status,
+        Json(ApiError {
+            status: status.to_string(),
+            title,
+            detail,
+        }),
+    )
+}
+
+#[derive(Serialize, Deserialize, Debug)]
 struct GeoIp {
     ip: String,
     country_code: String,
@@ -26,22 +44,26 @@ struct GeoIp {
 }
 
 #[get("/ip")]
-async fn ip(ip_addr: IpAddr) -> Result<Json<GeoIp>, (Status, String)> {
-    match fetch_geo_ip(ip_addr.to_string()).await {
-        Err(why) => {
-            println!("failed to get_geo_ip: {}", why);
-            Err((
+async fn ip(ip_addr: IpAddr) -> Result<Json<GeoIp>, (Status, Json<ApiError>)> {
+    fetch_geo_ip(ip_addr.to_string())
+        .await
+        .map(|data| Json(data))
+        .map_err(|error| {
+            println!("{}", error);
+            api_error(
                 Status::InternalServerError,
-                String::from("failed to lookup ip geolocation"),
-            ))
-        }
-        Ok(geo_ip) => Ok(Json(geo_ip)),
-    }
+                String::from("IP Geolocation lookup failed"),
+                error.to_string(),
+            )
+        })
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Default, Debug)]
 #[serde(rename_all = "camelCase")]
+#[serde(default)]
 struct GeoIpFetchResponse {
+    status: String,
+    message: String,
     query: String,
     country: String,
     country_code: String,
@@ -53,24 +75,36 @@ struct GeoIpFetchResponse {
     lon: f32,
 }
 
-#[derive(Debug, Clone)]
-struct BadHttpResponseError;
+#[derive(Debug)]
+struct FetchGeoIpError {
+    status: String,
+    message: String,
+}
 
-impl fmt::Display for BadHttpResponseError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "bad http response")
+impl fmt::Display for FetchGeoIpError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "fetch geo ip: status={0}, message={1}",
+            self.status, self.message
+        )
     }
 }
 
-impl Error for BadHttpResponseError {}
+impl Error for FetchGeoIpError {}
 
 async fn fetch_geo_ip(ip: String) -> Result<GeoIp, Box<dyn Error>> {
-    let response = reqwest::get(format!("http://ip-api.com/json/{}", ip)).await?;
-    if !response.status().is_success() {
-        return Err(Box::new(BadHttpResponseError));
-    }
+    let data = reqwest::get(format!("http://ip-api.com/json/{}", ip))
+        .await?
+        .json::<GeoIpFetchResponse>()
+        .await?;
 
-    let data = response.json::<GeoIpFetchResponse>().await?;
+    if data.status != "success" {
+        return Err(Box::new(FetchGeoIpError {
+            status: data.status,
+            message: data.message,
+        }));
+    }
 
     return Ok(GeoIp {
         ip: data.query,
