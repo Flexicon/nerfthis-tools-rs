@@ -93,7 +93,12 @@ impl fmt::Display for FetchGeoIpError {
 
 impl Error for FetchGeoIpError {}
 
-async fn fetch_geo_ip(ip: String) -> Result<GeoIp, Box<dyn Error>> {
+async fn fetch_geo_ip(mut ip: String) -> Result<GeoIp, Box<dyn Error>> {
+    if ip == "127.0.0.1" {
+        // When running locally, use ISP IP via the default behaviour of the API.
+        ip = String::new();
+    }
+
     let data = reqwest::get(format!("http://ip-api.com/json/{}", ip))
         .await?
         .json::<GeoIpFetchResponse>()
