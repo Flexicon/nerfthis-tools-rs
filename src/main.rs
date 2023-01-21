@@ -79,14 +79,15 @@ struct GeoIpFetchResponse {
 struct FetchGeoIpError {
     status: String,
     message: String,
+    query: String,
 }
 
 impl fmt::Display for FetchGeoIpError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "fetch geo ip: status={0}, message={1}",
-            self.status, self.message
+            "fetch geo ip: status='{0}', message='{1}' query='{2}'",
+            self.status, self.message, self.query
         )
     }
 }
@@ -108,6 +109,7 @@ async fn fetch_geo_ip(mut ip: String) -> Result<GeoIp, Box<dyn Error>> {
         return Err(Box::new(FetchGeoIpError {
             status: data.status,
             message: data.message,
+            query: data.query,
         }));
     }
 
