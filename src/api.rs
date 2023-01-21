@@ -1,9 +1,9 @@
 use rocket::{
     http::Status,
-    serde::{json::Json, Deserialize, Serialize},
+    serde::{json::Json, Serialize},
 };
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Debug)]
 pub struct ErrorResponse {
     status: String,
     title: String,
