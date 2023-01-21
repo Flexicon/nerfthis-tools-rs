@@ -3,15 +3,15 @@ use std::{error::Error, fmt};
 
 #[derive(Serialize, Debug)]
 pub struct GeoLocation {
-    ip: String,
-    country_code: String,
-    country_name: String,
-    region_name: String,
-    city: String,
-    zip_code: String,
-    time_zone: String,
-    latitude: f32,
-    longitude: f32,
+    pub ip: String,
+    pub country_code: String,
+    pub country_name: String,
+    pub region_name: String,
+    pub city: String,
+    pub zip_code: String,
+    pub time_zone: String,
+    pub latitude: f32,
+    pub longitude: f32,
 }
 
 #[derive(Deserialize, Default, Debug)]
