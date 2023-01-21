@@ -1,5 +1,4 @@
 use rocket::{
-    fairing::AdHoc,
     http::Status,
     serde::{json::Json, Deserialize, Serialize},
 };
@@ -127,11 +126,5 @@ async fn fetch_geo_ip(mut ip: String) -> Result<GeoIp, Box<dyn Error>> {
 
 #[launch]
 fn rocket() -> _ {
-    rocket::build()
-        .mount("/", routes![index, ip])
-        .attach(AdHoc::on_liftoff("Liftoff Message", |_| {
-            Box::pin(async move {
-                info!("🚀 We have liftoff!");
-            })
-        }))
+    rocket::build().mount("/", routes![index, ip])
 }

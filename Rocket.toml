@@ -1,7 +1,9 @@
 [global]
 port = 8000
-address = "0.0.0.0"
-log = "normal"
+log_level = "normal"
 
-[development]
-address = "localhost"
+[debug]
+address = "127.0.0.1"
+
+[release]
+address = "0.0.0.0"
