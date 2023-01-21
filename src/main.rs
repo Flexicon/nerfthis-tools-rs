@@ -9,7 +9,7 @@ extern crate rocket;
 
 #[get("/")]
 fn index() -> &'static str {
-    "Hello Rocket! Blast off 🚀"
+    "NerfThis Tools 🛠️"
 }
 
 #[derive(Serialize, Deserialize, Debug)]
