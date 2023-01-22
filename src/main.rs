@@ -1,4 +1,5 @@
 use rocket::{http::Status, serde::json::Json};
+use rocket_dyn_templates::{context, Template};
 use std::net::IpAddr;
 
 mod api;
@@ -8,24 +9,19 @@ mod ip;
 extern crate rocket;
 
 #[get("/")]
-fn index() -> &'static str {
-    "NerfThis Tools 🛠️"
+fn index() -> Template {
+    Template::render("index", context! {})
 }
 
 #[get("/ip")]
-async fn ip_handler(ip_addr: IpAddr) -> Result<String, (Status, String)> {
+async fn ip_handler(ip_addr: IpAddr) -> Result<Template, (Status, String)> {
     ip::fetch_geo_ip(&ip_addr.to_string())
         .await
         .map_err(|error| {
             warn!("{}", error);
             (Status::InternalServerError, error.to_string())
         })
-        .map(|data| {
-            format!(
-                "IP: {0}\nCity: {1}\nRegion: {2}\nCountry: {3}",
-                data.ip, data.city, data.region_name, data.country_name
-            )
-        })
+        .map(|_data| Template::render("ip", context! {}))
 }
 
 #[get("/ip.json")]
@@ -47,5 +43,7 @@ async fn ip_json_handler(
 
 #[launch]
 fn rocket() -> _ {
-    rocket::build().mount("/", routes![index, ip_handler, ip_json_handler])
+    rocket::build()
+        .mount("/", routes![index, ip_handler, ip_json_handler])
+        .attach(Template::fairing())
 }
