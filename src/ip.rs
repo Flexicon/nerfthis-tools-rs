@@ -138,33 +138,32 @@ mod test {
         }
     }
 
-    // TODO: implement
-    // #[tokio::test]
-    // async fn test_fetch_geo_ip_error() {
-    //     let input = "123.234.111.123";
-    //     let _m = mock("GET", format!("/json/{}", input).as_str())
-    //         .with_status(200)
-    //         .with_header("content-type", "application/json")
-    //         .with_body(SAMPLE_FAILURE_RESPONSE)
-    //         .create();
+    #[tokio::test]
+    async fn test_fetch_geo_ip_error() {
+        let input = "123.234.111.123";
+        let _m = mock("GET", format!("/json/{}", input).as_str())
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(SAMPLE_FAILURE_RESPONSE)
+            .create();
 
-    //     match fetch_geo_ip(input).await {
-    //         Err(error) => {
-    //             let expected_error = FetchError {
-    //                 status: response.status,
-    //                 message: response.message,
-    //                 query: response.query,
-    //             };
-    //             assert!(error, expected_error)
-    //         }
-    //         Ok(result) => {
-    //             panic!(
-    //                 "fetch_geo_ip was successful when expecting to fail: {:?}",
-    //                 result
-    //             )
-    //         }
-    //     }
-    // }
+        match fetch_geo_ip(input).await {
+            Err(error) => {
+                let expected_error = FetchError {
+                    status: String::from("fail"),
+                    message: String::from("reserved range"),
+                    query: String::from("127.0.0.1"),
+                };
+                assert_eq!(error.to_string(), expected_error.to_string())
+            }
+            Ok(result) => {
+                panic!(
+                    "fetch_geo_ip was successful when expecting to fail: {:?}",
+                    result
+                )
+            }
+        }
+    }
 
     fn test_geo_location() -> GeoLocation {
         GeoLocation {
