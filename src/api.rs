@@ -10,17 +10,13 @@ pub struct ErrorResponse {
     detail: String,
 }
 
-pub fn error_response(
-    status: Status,
-    title: String,
-    detail: String,
-) -> (Status, Json<ErrorResponse>) {
+pub fn error_response(status: Status, title: &str, detail: &str) -> (Status, Json<ErrorResponse>) {
     (
         status,
         Json(ErrorResponse {
             status: status.to_string(),
-            title,
-            detail,
+            title: title.into(),
+            detail: detail.into(),
         }),
     )
 }
