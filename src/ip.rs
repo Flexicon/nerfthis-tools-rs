@@ -1,10 +1,13 @@
+use anyhow::anyhow;
+use cached::proc_macro::cached;
+use reqwest::Client;
+use reqwest_middleware::{ClientBuilder, ClientWithMiddleware};
 use rocket::serde::{Deserialize, Serialize};
-use std::{error::Error, fmt};
 
 #[cfg(test)]
 use mockito;
 
-#[derive(Serialize, Debug, PartialEq, PartialOrd)]
+#[derive(Serialize, Debug, PartialEq, PartialOrd, Clone)]
 pub struct GeoLocation {
     pub ip: String,
     pub country_code: String,
@@ -44,29 +47,13 @@ impl FetchResponse {
     }
 }
 
-#[derive(Debug)]
-pub struct FetchError {
-    status: String,
-    message: String,
-    query: String,
-}
+#[cached(time = 300, result = true)] // Cached `Ok` results for 5 minutes
+pub async fn fetch_geo_ip(mut ip: String) -> Result<GeoLocation, anyhow::Error> {
+    info!("Fetching GeoLocation data for: {}", ip);
 
-impl fmt::Display for FetchError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "fetch geo ip: status='{0}', message='{1}' query='{2}'",
-            self.status, self.message, self.query
-        )
-    }
-}
-
-impl Error for FetchError {}
-
-pub async fn fetch_geo_ip(mut ip: &str) -> Result<GeoLocation, Box<dyn Error>> {
     if ip == "127.0.0.1" {
         // When running locally, use ISP IP via the default behaviour of the API.
-        ip = "";
+        ip = String::new();
     }
 
     let response = get_from_api(format!("/json/{}", ip))
@@ -75,11 +62,11 @@ pub async fn fetch_geo_ip(mut ip: &str) -> Result<GeoLocation, Box<dyn Error>> {
         .await?;
 
     if response.is_failure() {
-        return Err(Box::new(FetchError {
-            status: response.status,
-            message: response.message,
-            query: response.query,
-        }));
+        return Err(fetch_error(
+            response.status,
+            response.message,
+            response.query,
+        ));
     }
 
     return Ok(GeoLocation {
@@ -95,8 +82,15 @@ pub async fn fetch_geo_ip(mut ip: &str) -> Result<GeoLocation, Box<dyn Error>> {
     });
 }
 
-async fn get_from_api(path: String) -> reqwest::Result<reqwest::Response> {
-    reqwest::get(format!("{0}{1}", base_api_url(), path)).await
+async fn get_from_api(path: String) -> reqwest_middleware::Result<reqwest::Response> {
+    api_client()
+        .get(format!("{0}{1}", base_api_url(), path))
+        .send()
+        .await
+}
+
+fn api_client() -> ClientWithMiddleware {
+    ClientBuilder::new(Client::new()).build()
 }
 
 fn base_api_url() -> String {
@@ -109,9 +103,18 @@ fn base_api_url() -> String {
     url.into()
 }
 
+fn fetch_error(status: String, message: String, query: String) -> anyhow::Error {
+    anyhow!(
+        "fetch geo ip: status='{0}', message='{1}' query='{2}'",
+        status,
+        message,
+        query,
+    )
+}
+
 #[cfg(test)]
 mod test {
-    use super::{fetch_geo_ip, FetchError, GeoLocation};
+    use super::{fetch_error, fetch_geo_ip, GeoLocation};
     use mockito::mock;
 
     const SAMPLE_SUCCESS_RESPONSE: &str = r#"{"status":"success","country":"Norway","countryCode":"NO","region":"50","regionName":"Trøndelag","city":"Halsanaustan","zip":"6680","lat":63.0913,"lon":8.2362,"timezone":"Europe/Oslo","isp":"GLOBALCONNECT","org":"Svorka FTTH","as":"AS2116 GLOBALCONNECT AS","query":"143.110.98.165"}"#;
@@ -128,7 +131,7 @@ mod test {
             .with_body(SAMPLE_SUCCESS_RESPONSE)
             .create();
 
-        match fetch_geo_ip(expected.ip.as_str()).await {
+        match fetch_geo_ip(expected.ip.clone()).await {
             Err(error) => {
                 panic!("fetch_geo_ip failed: {}", error)
             }
@@ -147,13 +150,14 @@ mod test {
             .with_body(SAMPLE_FAILURE_RESPONSE)
             .create();
 
-        match fetch_geo_ip(input).await {
+        match fetch_geo_ip(input.to_string()).await {
             Err(error) => {
-                let expected_error = FetchError {
-                    status: String::from("fail"),
-                    message: String::from("reserved range"),
-                    query: String::from("127.0.0.1"),
-                };
+                let expected_error = fetch_error(
+                    String::from("fail"),
+                    String::from("reserved range"),
+                    String::from("127.0.0.1"),
+                );
+
                 assert_eq!(error.to_string(), expected_error.to_string())
             }
             Ok(result) => {

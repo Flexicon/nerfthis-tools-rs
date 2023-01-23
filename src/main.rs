@@ -15,7 +15,7 @@ fn index() -> Template {
 
 #[get("/ip")]
 async fn ip_handler(ip_addr: IpAddr) -> Result<Template, (Status, String)> {
-    ip::fetch_geo_ip(&ip_addr.to_string())
+    ip::fetch_geo_ip(ip_addr.to_string())
         .await
         .map_err(|error| {
             warn!("{}", error);
@@ -36,7 +36,7 @@ async fn ip_handler(ip_addr: IpAddr) -> Result<Template, (Status, String)> {
 async fn ip_json_handler(
     ip_addr: IpAddr,
 ) -> Result<Json<ip::GeoLocation>, (Status, Json<api::ErrorResponse>)> {
-    ip::fetch_geo_ip(&ip_addr.to_string())
+    ip::fetch_geo_ip(ip_addr.to_string())
         .await
         .map_err(|error| {
             warn!("{}", error);
