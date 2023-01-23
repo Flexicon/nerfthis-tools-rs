@@ -21,7 +21,7 @@ async fn ip_handler(ip_addr: IpAddr) -> Result<Template, (Status, String)> {
             warn!("{}", error);
             (Status::InternalServerError, error.to_string())
         })
-        .map(|_data| Template::render("ip", context! {}))
+        .map(|data| Template::render("ip", context! { geo_location: data }))
 }
 
 #[get("/ip.json")]
